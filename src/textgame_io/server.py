@@ -14,7 +14,7 @@ from typing import Any
 from starlette.applications import Starlette
 from starlette.requests import Request
 from starlette.responses import JSONResponse
-from starlette.routing import Route
+from starlette.routing import Route, WebSocketRoute
 from starlette.websockets import WebSocket, WebSocketDisconnect
 
 from textgame_io.messages import (
@@ -170,10 +170,10 @@ class GameServer(ABC):
 
         routes = [
             Route("/api/command", http_command, methods=["POST"]),
+            WebSocketRoute("/ws", websocket_endpoint),
         ]
 
         app = Starlette(routes=routes)
-        app.add_websocket_route("/ws", websocket_endpoint)
         return app
 
 
