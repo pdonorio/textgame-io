@@ -53,7 +53,7 @@ class TerminalClient(GameClient):
     async def render_status(self, msg: StatusMessage) -> None:
         for field in msg.fields:
             self._status[field.key] = field.value
-        self._print_status_bar()
+        # Don't print here — status bar renders once before the input prompt
 
     async def render_system(self, msg: SystemMessage) -> None:
         colors = {
