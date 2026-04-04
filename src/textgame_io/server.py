@@ -20,7 +20,6 @@ from starlette.websockets import WebSocket, WebSocketDisconnect
 from textgame_io.messages import (
     ChoiceMessage,
     ClientMessage,
-    ClientMessageType,
     CommandMessage,
     Envelope,
     MetaAction,
@@ -29,6 +28,7 @@ from textgame_io.messages import (
     SessionConfig,
     SystemLevel,
     SystemMessage,
+    parse_client_message,
 )
 
 
@@ -127,7 +127,7 @@ class GameServer(ABC):
                 # Main loop
                 while True:
                     data = await ws.receive_json()
-                    client_msg = _parse_client_message(data)
+                    client_msg = parse_client_message(data)
                     if client_msg is None:
                         err = Envelope(
                             session_id=session.session_id,
@@ -156,7 +156,7 @@ class GameServer(ABC):
                 return JSONResponse(envelope.model_dump())
 
             session = self.sessions[session_id]
-            client_msg = _parse_client_message(data)
+            client_msg = parse_client_message(data)
             if client_msg is None:
                 envelope = Envelope(
                     session_id=session_id,
@@ -175,18 +175,3 @@ class GameServer(ABC):
 
         app = Starlette(routes=routes)
         return app
-
-
-def _parse_client_message(data: dict) -> ClientMessage | None:
-    """Parse a raw dict into a typed client message."""
-    msg_type = data.get("type")
-    try:
-        if msg_type == ClientMessageType.COMMAND:
-            return CommandMessage(**data)
-        elif msg_type == ClientMessageType.CHOICE:
-            return ChoiceMessage(**data)
-        elif msg_type == ClientMessageType.META:
-            return MetaMessage(**data)
-    except Exception:
-        pass
-    return None

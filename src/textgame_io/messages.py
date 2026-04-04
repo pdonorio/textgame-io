@@ -191,3 +191,43 @@ class Envelope(BaseModel):
     def add(self, msg: ServerMessage | ClientMessage) -> "Envelope":
         self.messages.append(msg)
         return self
+
+
+# --- Message Parsing ---
+
+# Type registries: map type string → model class. Add new message types here only.
+_SERVER_MESSAGE_TYPES: dict[str, type[BaseModel]] = {
+    ServerMessageType.NARRATIVE: NarrativeMessage,
+    ServerMessageType.PROMPT: PromptMessage,
+    ServerMessageType.STATUS: StatusMessage,
+    ServerMessageType.SYSTEM: SystemMessage,
+    ServerMessageType.ART: ArtMessage,
+}
+
+_CLIENT_MESSAGE_TYPES: dict[str, type[BaseModel]] = {
+    ClientMessageType.COMMAND: CommandMessage,
+    ClientMessageType.CHOICE: ChoiceMessage,
+    ClientMessageType.META: MetaMessage,
+}
+
+
+def parse_server_message(data: dict) -> ServerMessage | None:
+    """Parse a dict into a typed server message. Returns None if type is unknown."""
+    model = _SERVER_MESSAGE_TYPES.get(data.get("type", ""))
+    if model is None:
+        return None
+    try:
+        return model(**data)
+    except Exception:
+        return None
+
+
+def parse_client_message(data: dict) -> ClientMessage | None:
+    """Parse a dict into a typed client message. Returns None if type is unknown."""
+    model = _CLIENT_MESSAGE_TYPES.get(data.get("type", ""))
+    if model is None:
+        return None
+    try:
+        return model(**data)
+    except Exception:
+        return None

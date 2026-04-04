@@ -21,10 +21,10 @@ from textgame_io.messages import (
     NarrativeMessage,
     PromptMessage,
     ServerMessage,
-    ServerMessageType,
     SessionConfig,
     StatusMessage,
     SystemMessage,
+    parse_server_message,
 )
 
 
@@ -92,7 +92,7 @@ class GameClient(ABC):
         """Render all messages in an envelope."""
         for msg_data in envelope.messages:
             # Re-parse from dict since union deserialization needs type dispatch
-            msg = _parse_server_message(msg_data) if isinstance(msg_data, dict) else msg_data
+            msg = parse_server_message(msg_data) if isinstance(msg_data, dict) else msg_data
             if msg:
                 await self.render_message(msg)
 
@@ -151,20 +151,3 @@ class GameClient(ABC):
             await self.disconnect()
 
 
-def _parse_server_message(data: dict) -> ServerMessage | None:
-    """Parse a dict into a typed server message."""
-    msg_type = data.get("type")
-    try:
-        if msg_type == ServerMessageType.NARRATIVE:
-            return NarrativeMessage(**data)
-        elif msg_type == ServerMessageType.PROMPT:
-            return PromptMessage(**data)
-        elif msg_type == ServerMessageType.STATUS:
-            return StatusMessage(**data)
-        elif msg_type == ServerMessageType.SYSTEM:
-            return SystemMessage(**data)
-        elif msg_type == ServerMessageType.ART:
-            return ArtMessage(**data)
-    except Exception:
-        pass
-    return None

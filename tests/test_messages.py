@@ -20,6 +20,8 @@ from textgame_io.messages import (
     StatusMessage,
     SystemLevel,
     SystemMessage,
+    parse_client_message,
+    parse_server_message,
 )
 
 
@@ -150,3 +152,60 @@ class TestEnvelope:
         assert data["session_id"] == "abc"
         assert len(data["messages"]) == 1
         assert data["messages"][0]["type"] == "narrative"
+
+
+class TestParseServerMessage:
+    def test_parse_narrative(self) -> None:
+        data = {"type": "narrative", "title": "Room", "text": "A dark room."}
+        msg = parse_server_message(data)
+        assert isinstance(msg, NarrativeMessage)
+        assert msg.title == "Room"
+
+    def test_parse_status(self) -> None:
+        data = {"type": "status", "fields": [{"key": "hp", "label": "HP", "value": "20"}]}
+        msg = parse_server_message(data)
+        assert isinstance(msg, StatusMessage)
+
+    def test_parse_all_server_types(self) -> None:
+        types = {
+            "narrative": NarrativeMessage,
+            "prompt": PromptMessage,
+            "status": StatusMessage,
+            "system": SystemMessage,
+            "art": ArtMessage,
+        }
+        for type_str, cls in types.items():
+            data = {"type": type_str, "text": "test", "prompt_id": "x", "fields": [], "content": ""}
+            msg = parse_server_message(data)
+            assert isinstance(msg, cls), f"Failed for {type_str}"
+
+    def test_parse_unknown_type_returns_none(self) -> None:
+        assert parse_server_message({"type": "bogus"}) is None
+
+    def test_parse_missing_type_returns_none(self) -> None:
+        assert parse_server_message({"text": "no type"}) is None
+
+    def test_parse_invalid_fields_returns_none(self) -> None:
+        # NarrativeMessage requires 'text' field
+        assert parse_server_message({"type": "narrative"}) is None
+
+
+class TestParseClientMessage:
+    def test_parse_command(self) -> None:
+        data = {"type": "command", "text": "go north"}
+        msg = parse_client_message(data)
+        assert isinstance(msg, CommandMessage)
+        assert msg.text == "go north"
+
+    def test_parse_choice(self) -> None:
+        data = {"type": "choice", "prompt_id": "exits", "value": "north"}
+        msg = parse_client_message(data)
+        assert isinstance(msg, ChoiceMessage)
+
+    def test_parse_meta(self) -> None:
+        data = {"type": "meta", "action": "connect"}
+        msg = parse_client_message(data)
+        assert isinstance(msg, MetaMessage)
+
+    def test_parse_unknown_returns_none(self) -> None:
+        assert parse_client_message({"type": "bogus"}) is None
