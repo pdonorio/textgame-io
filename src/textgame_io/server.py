@@ -11,11 +11,16 @@ import uuid
 from abc import ABC, abstractmethod
 from typing import Any
 
+from pathlib import Path
+
 from starlette.applications import Starlette
 from starlette.requests import Request
-from starlette.responses import JSONResponse
-from starlette.routing import Route, WebSocketRoute
+from starlette.responses import FileResponse, JSONResponse
+from starlette.routing import Mount, Route, WebSocketRoute
+from starlette.staticfiles import StaticFiles
 from starlette.websockets import WebSocket, WebSocketDisconnect
+
+_STATIC_DIR = Path(__file__).parent / "static"
 
 from textgame_io.messages import (
     ChoiceMessage,
@@ -168,9 +173,14 @@ class GameServer(ABC):
             envelope = Envelope(session_id=session.session_id, messages=responses)
             return JSONResponse(envelope.model_dump())
 
+        async def serve_index(request: Request) -> FileResponse:
+            return FileResponse(_STATIC_DIR / "index.html")
+
         routes = [
+            Route("/", serve_index, methods=["GET"]),
             Route("/api/command", http_command, methods=["POST"]),
             WebSocketRoute("/ws", websocket_endpoint),
+            Mount("/static", StaticFiles(directory=_STATIC_DIR)),
         ]
 
         app = Starlette(routes=routes)

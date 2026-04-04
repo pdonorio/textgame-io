@@ -1,0 +1,516 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TextWorld</title>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg:        #0c0c0f;
+  --bg2:       #13131a;
+  --bg3:       #1a1a24;
+  --border:    #2a2a3a;
+  --text:      #c4c4b0;
+  --text-dim:  #5a5a70;
+  --text-muted:#3a3a50;
+  --gold:      #c8a84a;
+  --green:     #5aaa6a;
+  --red:       #cc5555;
+  --yellow:    #b89840;
+  --blue:      #7888cc;
+  --cyan:      #5aaa99;
+  --accent:    #7888cc;
+}
+
+html, body {
+  height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Courier New', 'Lucida Console', monospace;
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+body {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* ── Status bar ── */
+#status-bar {
+  flex-shrink: 0;
+  background: var(--bg2);
+  border-bottom: 1px solid var(--border);
+  padding: 5px 14px;
+  display: flex;
+  gap: 18px;
+  flex-wrap: wrap;
+  align-items: center;
+  font-size: 12px;
+  min-height: 30px;
+}
+.sf { display: flex; gap: 4px; align-items: baseline; }
+.sf-label { color: var(--text-dim); }
+.sf-value { color: var(--text); }
+.sf-location .sf-value { color: var(--blue); }
+.sf-hp .sf-value      { color: var(--red); }
+.sf-mana .sf-value    { color: var(--cyan); }
+.sf-level .sf-value   { color: var(--gold); }
+.sf-version           { margin-left: auto; }
+.sf-version .sf-value { color: var(--text-muted); font-size: 11px; }
+
+/* ── Output ── */
+#output {
+  flex: 1;
+  overflow-y: auto;
+  padding: 10px 14px 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  scroll-behavior: smooth;
+}
+#output::-webkit-scrollbar { width: 6px; }
+#output::-webkit-scrollbar-track { background: var(--bg); }
+#output::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+/* ── Message types ── */
+.msg-art {
+  color: #3a4a5a;
+  font-size: 11px;
+  line-height: 1.15;
+  white-space: pre;
+  margin: 4px 0;
+  user-select: none;
+}
+
+.msg-narrative { margin: 3px 0; }
+.msg-narrative .n-title {
+  color: var(--gold);
+  font-size: 15px;
+  letter-spacing: 0.03em;
+  margin-bottom: 1px;
+}
+.msg-narrative.room .n-title { color: var(--blue); }
+.msg-narrative.combat        { color: #cc8866; }
+.msg-narrative.loot .n-title { color: var(--green); }
+
+.msg-system { padding: 1px 0; }
+.msg-system.info    { color: var(--text-dim); }
+.msg-system.warning { color: var(--yellow); }
+.msg-system.error   { color: var(--red); }
+.msg-system.success { color: var(--green); }
+
+.echo { color: var(--text-muted); }
+.echo::before { content: '> '; color: #3a3a50; }
+
+.separator {
+  border: none;
+  border-top: 1px solid var(--border);
+  margin: 5px 0;
+  opacity: 0.5;
+}
+
+/* ── Choices ── */
+#choices {
+  flex-shrink: 0;
+  padding: 4px 14px 6px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  min-height: 0;
+}
+.choice-btn {
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  color: var(--blue);
+  padding: 4px 13px;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 13px;
+  border-radius: 2px;
+  transition: background 0.1s, border-color 0.1s, color 0.1s;
+}
+.choice-btn:hover, .choice-btn.active {
+  background: #20203a;
+  border-color: var(--accent);
+  color: #aabbee;
+}
+.choice-btn .shortcut {
+  color: var(--text-muted);
+  font-size: 11px;
+  margin-left: 5px;
+}
+
+/* ── Input row ── */
+#input-row {
+  flex-shrink: 0;
+  border-top: 1px solid var(--border);
+  background: var(--bg2);
+  padding: 7px 14px;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+#prompt-label {
+  color: var(--text-dim);
+  font-size: 13px;
+  white-space: nowrap;
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex-shrink: 0;
+}
+#cmd-input {
+  flex: 1;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 5px 10px;
+  font-family: inherit;
+  font-size: 14px;
+  outline: none;
+  border-radius: 2px;
+  transition: border-color 0.15s;
+}
+#cmd-input:focus { border-color: var(--accent); }
+#cmd-input::placeholder { color: var(--text-muted); }
+#cmd-input:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+#send-btn {
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  color: var(--accent);
+  padding: 5px 14px;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 13px;
+  border-radius: 2px;
+}
+#send-btn:hover { background: #20203a; border-color: var(--accent); }
+#send-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+/* ── Connection badge ── */
+#conn-badge {
+  font-size: 10px;
+  padding: 2px 7px;
+  border-radius: 10px;
+  flex-shrink: 0;
+}
+.conn-ok  { background: #0a2a0a; color: var(--green); border: 1px solid #1a4a1a; }
+.conn-err { background: #2a0a0a; color: var(--red);   border: 1px solid #4a1a1a; }
+.conn-mid { background: #1a1a0a; color: var(--yellow); border: 1px solid #3a3a1a; }
+
+/* ── Inline rich spans ── */
+.r-bold   { font-weight: bold; }
+.r-dim    { color: var(--text-dim); }
+.r-italic { font-style: italic; }
+</style>
+</head>
+<body>
+
+<div id="status-bar">
+  <span class="sf sf-version"><span class="sf-label">TextWorld</span> <span class="sf-value" id="ver-label">—</span></span>
+</div>
+
+<div id="output"></div>
+<div id="choices"></div>
+
+<div id="input-row">
+  <span id="prompt-label">&rsaquo;</span>
+  <input id="cmd-input" type="text" placeholder="enter a command…" autocomplete="off" spellcheck="false" />
+  <button id="send-btn">Send</button>
+  <span id="conn-badge" class="conn-mid">…</span>
+</div>
+
+<script>
+"use strict";
+
+// ─── Rich markup → safe HTML ───────────────────────────────────────────────
+const RICH_COLORS = {
+  red:'#cc5555', green:'#5aaa6a', yellow:'#b89840', blue:'#7888cc',
+  cyan:'#5aaa99', magenta:'#aa66aa', white:'#ddddd0', black:'#333340',
+  dim:'#5a5a70', grey:'#6a6a7a', gray:'#6a6a7a',
+};
+
+function richToHtml(raw) {
+  if (!raw) return '';
+  // Escape HTML first
+  let s = raw.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  // Replace known tags iteratively (handles one level of nesting well enough)
+  s = s.replace(/\[bold\]([\s\S]*?)\[\/bold\]/gi, '<span class="r-bold">$1</span>');
+  s = s.replace(/\[italic\]([\s\S]*?)\[\/italic\]/gi, '<span class="r-italic">$1</span>');
+  s = s.replace(/\[dim\]([\s\S]*?)\[\/dim\]/gi, '<span class="r-dim">$1</span>');
+  s = s.replace(/\[bold (\w+)\]([\s\S]*?)\[\/bold \1\]/gi, (_, color, inner) => {
+    const c = RICH_COLORS[color] || null;
+    return c ? `<span class="r-bold" style="color:${c}">${inner}</span>` : `<span class="r-bold">${inner}</span>`;
+  });
+  // Hex colors [#rrggbb]text[/#rrggbb]
+  s = s.replace(/\[#([0-9a-fA-F]{3,6})\]([\s\S]*?)\[\/#([0-9a-fA-F]{3,6})\]/g,
+    (_, hex, inner) => `<span style="color:#${hex}">${inner}</span>`);
+  // Named colors
+  s = s.replace(/\[(\w+)\]([\s\S]*?)\[\/\1\]/g, (_, tag, inner) => {
+    const c = RICH_COLORS[tag];
+    if (c) return `<span style="color:${c}">${inner}</span>`;
+    return inner; // unknown tag — strip it
+  });
+  // Strip any leftover [tags]
+  s = s.replace(/\[[^\]]{0,30}\]/g, '');
+  return s;
+}
+
+function plainText(raw) {
+  if (!raw) return '';
+  return raw.replace(/\[[^\]]{0,30}\]/g, '').trim();
+}
+
+// ─── DOM refs ──────────────────────────────────────────────────────────────
+const outputEl   = document.getElementById('output');
+const choicesEl  = document.getElementById('choices');
+const inputEl    = document.getElementById('cmd-input');
+const sendBtn    = document.getElementById('send-btn');
+const promptLbl  = document.getElementById('prompt-label');
+const statusBar  = document.getElementById('status-bar');
+const connBadge  = document.getElementById('conn-badge');
+const verLabel   = document.getElementById('ver-label');
+
+// ─── State ─────────────────────────────────────────────────────────────────
+let ws;
+let pendingPrompt = null;  // { prompt_id, style }
+const statusFields = {};   // key → { label, value }
+
+// ─── Scroll ────────────────────────────────────────────────────────────────
+function scrollBottom() {
+  outputEl.scrollTop = outputEl.scrollHeight;
+}
+
+// ─── Render messages ───────────────────────────────────────────────────────
+function renderAll(messages) {
+  for (const msg of messages) render(msg);
+  scrollBottom();
+}
+
+function render(msg) {
+  switch (msg.type) {
+    case 'art':       return renderArt(msg);
+    case 'narrative': return renderNarrative(msg);
+    case 'system':    return renderSystem(msg);
+    case 'status':    return renderStatus(msg);
+    case 'prompt':    return renderPrompt(msg);
+  }
+}
+
+function renderArt(msg) {
+  if (!msg.content) return;
+  const el = document.createElement('pre');
+  el.className = 'msg-art';
+  el.textContent = msg.content;
+  outputEl.appendChild(el);
+}
+
+function renderNarrative(msg) {
+  const el = document.createElement('div');
+  el.className = `msg-narrative ${msg.style || ''}`;
+  if (msg.title) {
+    const t = document.createElement('div');
+    t.className = 'n-title';
+    t.innerHTML = richToHtml(msg.title);
+    el.appendChild(t);
+  }
+  if (msg.text) {
+    const b = document.createElement('div');
+    b.innerHTML = richToHtml(msg.text);
+    el.appendChild(b);
+  }
+  outputEl.appendChild(el);
+}
+
+function renderSystem(msg) {
+  if (!msg.text) return;
+  const el = document.createElement('div');
+  el.className = `msg-system ${msg.level || 'info'}`;
+  el.innerHTML = richToHtml(msg.text);
+  outputEl.appendChild(el);
+}
+
+function renderStatus(msg) {
+  for (const f of (msg.fields || [])) {
+    statusFields[f.key] = f;
+    if (f.key === 'version') verLabel.textContent = f.value;
+    if (f.key === 'location') document.title = `${plainText(f.value)} — TextWorld`;
+  }
+  rebuildStatusBar();
+}
+
+function rebuildStatusBar() {
+  // Priority order for display
+  const order = ['location', 'zone', 'hp', 'mana', 'level', 'version'];
+  const shown = new Set();
+  const frags = [];
+
+  for (const key of order) {
+    if (statusFields[key]) {
+      frags.push(renderStatusField(statusFields[key]));
+      shown.add(key);
+    }
+  }
+  for (const [key, f] of Object.entries(statusFields)) {
+    if (!shown.has(key)) frags.push(renderStatusField(f));
+  }
+
+  statusBar.innerHTML = frags.join('');
+}
+
+function renderStatusField(f) {
+  return `<span class="sf sf-${f.key}"><span class="sf-label">${f.label}:</span> <span class="sf-value">${richToHtml(f.value)}</span></span>`;
+}
+
+function renderPrompt(msg) {
+  pendingPrompt = { prompt_id: msg.prompt_id, style: msg.style };
+  choicesEl.innerHTML = '';
+
+  if (msg.style === 'select_one' && msg.options && msg.options.length > 0) {
+    inputEl.disabled = true;
+    sendBtn.disabled = true;
+    promptLbl.textContent = plainText(msg.text) || '›';
+
+    msg.options.forEach((opt, i) => {
+      const btn = document.createElement('button');
+      btn.className = 'choice-btn';
+      btn.dataset.key = opt.key;
+      const shortcut = opt.shortcut || String(i + 1);
+      btn.innerHTML = richToHtml(opt.label) +
+        (shortcut ? `<span class="shortcut">[${shortcut}]</span>` : '');
+      btn.addEventListener('click', () => sendChoice(msg.prompt_id, opt.key, opt.label));
+      choicesEl.appendChild(btn);
+    });
+  } else {
+    // FREE_TEXT or CONFIRM — enable input
+    inputEl.disabled = false;
+    sendBtn.disabled = false;
+    promptLbl.textContent = plainText(msg.text) || '›';
+    inputEl.focus();
+  }
+}
+
+// ─── Sending ───────────────────────────────────────────────────────────────
+function echoInput(text) {
+  const el = document.createElement('div');
+  el.className = 'echo msg-system info';
+  el.textContent = text;
+  outputEl.appendChild(el);
+}
+
+function sendCommand(text) {
+  if (!text.trim() || !ws || ws.readyState !== WebSocket.OPEN) return;
+  echoInput(text);
+  ws.send(JSON.stringify({ type: 'command', text }));
+  scrollBottom();
+}
+
+function sendChoice(promptId, value, label) {
+  if (!ws || ws.readyState !== WebSocket.OPEN) return;
+  echoInput(plainText(label || value));
+  choicesEl.innerHTML = '';
+  pendingPrompt = null;
+  promptLbl.textContent = '›';
+  inputEl.disabled = false;
+  sendBtn.disabled = false;
+  ws.send(JSON.stringify({ type: 'choice', prompt_id: promptId, value }));
+  scrollBottom();
+  inputEl.focus();
+}
+
+// ─── Input handling ────────────────────────────────────────────────────────
+function handleSubmit() {
+  const text = inputEl.value.trim();
+  if (!text) return;
+  inputEl.value = '';
+
+  if (pendingPrompt && pendingPrompt.style !== 'select_one') {
+    sendChoice(pendingPrompt.prompt_id, text, text);
+  } else {
+    sendCommand(text);
+  }
+}
+
+inputEl.addEventListener('keydown', e => {
+  if (e.key === 'Enter') handleSubmit();
+});
+sendBtn.addEventListener('click', handleSubmit);
+
+// Keyboard shortcuts for choice buttons (number keys + shortcut chars)
+document.addEventListener('keydown', e => {
+  if (document.activeElement === inputEl) return;
+  if (!pendingPrompt || pendingPrompt.style !== 'select_one') return;
+
+  const btns = [...choicesEl.querySelectorAll('.choice-btn')];
+  if (!btns.length) return;
+
+  // Number key: 1 = first btn, 2 = second, etc.
+  const num = parseInt(e.key, 10);
+  if (num >= 1 && num <= btns.length) {
+    btns[num - 1].click();
+    return;
+  }
+
+  // Match first letter of any button's key
+  const lower = e.key.toLowerCase();
+  const match = btns.find(b => b.dataset.key && b.dataset.key[0] === lower);
+  if (match) match.click();
+});
+
+// ─── WebSocket ─────────────────────────────────────────────────────────────
+function setConnState(state) {
+  const map = {
+    connecting: ['conn-mid', 'connecting…'],
+    ok:         ['conn-ok',  'connected'],
+    error:      ['conn-err', 'disconnected'],
+  };
+  const [cls, label] = map[state] || map.error;
+  connBadge.className = cls;
+  connBadge.textContent = label;
+}
+
+function connect() {
+  setConnState('connecting');
+  const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+  ws = new WebSocket(`${proto}//${location.host}/ws`);
+
+  ws.onopen = () => {
+    setConnState('ok');
+    inputEl.focus();
+  };
+
+  ws.onmessage = e => {
+    try {
+      const env = JSON.parse(e.data);
+      renderAll(env.messages || []);
+    } catch {
+      console.error('Bad envelope:', e.data);
+    }
+  };
+
+  ws.onclose = () => {
+    setConnState('error');
+    inputEl.disabled = true;
+    sendBtn.disabled = true;
+    // Attempt reconnect after 3s
+    setTimeout(() => {
+      inputEl.disabled = false;
+      sendBtn.disabled = false;
+      connect();
+    }, 3000);
+  };
+
+  ws.onerror = () => setConnState('error');
+}
+
+connect();
+</script>
+</body>
+</html>
