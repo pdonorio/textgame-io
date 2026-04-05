@@ -314,6 +314,49 @@ body {
   50%       { opacity: 0; }
 }
 
+#splash-cta {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+.splash-btn {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--blue);
+  padding: 10px 32px;
+  min-height: 44px;
+  min-width: 180px;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 13px;
+  letter-spacing: 0.12em;
+  border-radius: 2px;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+.splash-btn:hover, .splash-btn:active {
+  background: #20203a;
+  border-color: var(--accent);
+  color: #aabbee;
+}
+.splash-link {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  cursor: pointer;
+  font-family: inherit;
+  padding: 4px 8px;
+  min-height: 32px;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+.splash-link:hover, .splash-link:active { color: var(--text-dim); }
+#splash.has-token { cursor: default; }
+
 /* ── Inline rich spans ── */
 .r-bold   { font-weight: bold; }
 .r-dim    { color: var(--text-dim); }
@@ -326,7 +369,7 @@ body {
   <pre id="splash-art"></pre>
   <div id="splash-title">T E X T W O R L D</div>
   <div id="splash-sub">where worlds collide</div>
-  <div id="splash-enter">[ tap anywhere to enter ]</div>
+  <div id="splash-cta"></div>
 </div>
 
 <div id="status-bar">
@@ -608,24 +651,71 @@ const SPLASH_ART = [
 
 const splashEl  = document.getElementById('splash');
 const splashArt = document.getElementById('splash-art');
+const splashCta = document.getElementById('splash-cta');
 
 splashArt.textContent = SPLASH_ART[Math.floor(Math.random() * SPLASH_ART.length)];
 
-function dismissSplash() {
+function hideSplash() {
   splashEl.classList.add('fade-out');
   setTimeout(() => { splashEl.style.display = 'none'; }, 650);
+}
+
+function startNewGame() {
+  localStorage.removeItem('tw_token');
+  localStorage.removeItem('tw_username');
+  hideSplash();
   connect();
-  splashEl.removeEventListener('click', dismissSplash);
-  document.removeEventListener('keydown', onSplashKey);
+}
+
+function continueGame() {
+  hideSplash();
+  connect();
 }
 
 function onSplashKey(e) {
   if (e.key === 'Tab' || e.key === 'Shift') return; // ignore focus-only keys
-  dismissSplash();
+  document.removeEventListener('keydown', onSplashKey);
+  splashEl.removeEventListener('click', onSplashClick);
+  startNewGame();
 }
 
-splashEl.addEventListener('click', dismissSplash);
-document.addEventListener('keydown', onSplashKey);
+function onSplashClick() {
+  splashEl.removeEventListener('click', onSplashClick);
+  document.removeEventListener('keydown', onSplashKey);
+  startNewGame();
+}
+
+(function initSplashCta() {
+  const token    = localStorage.getItem('tw_token');
+  const username = localStorage.getItem('tw_username');
+
+  if (token && username) {
+    // Show "Continue as <name>" + a "New Game" escape hatch
+    splashEl.classList.add('has-token');
+
+    const continueBtn = document.createElement('button');
+    continueBtn.className = 'splash-btn';
+    continueBtn.textContent = `continue as ${username}`;
+    continueBtn.addEventListener('click', e => { e.stopPropagation(); continueGame(); });
+
+    const newBtn = document.createElement('button');
+    newBtn.className = 'splash-link';
+    newBtn.textContent = '[ new game ]';
+    newBtn.addEventListener('click', e => { e.stopPropagation(); startNewGame(); });
+
+    splashCta.appendChild(continueBtn);
+    splashCta.appendChild(newBtn);
+  } else {
+    // No token — tap/keypress starts a new game
+    const enterDiv = document.createElement('div');
+    enterDiv.id = 'splash-enter';
+    enterDiv.textContent = '[ tap anywhere to enter ]';
+    splashCta.appendChild(enterDiv);
+
+    splashEl.addEventListener('click', onSplashClick);
+    document.addEventListener('keydown', onSplashKey);
+  }
+})();
 
 // ─── Rich markup → safe HTML ───────────────────────────────────────────────
 const RICH_COLORS = {
@@ -704,6 +794,7 @@ function render(msg) {
 
 function handleAuth(msg) {
   if (msg.token) localStorage.setItem('tw_token', msg.token);
+  if (msg.username) localStorage.setItem('tw_username', msg.username);
   if (msg.recovery_phrase) showRecoveryModal(msg.username, msg.recovery_phrase);
 }
 

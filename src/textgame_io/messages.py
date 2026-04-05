@@ -15,11 +15,6 @@ from pydantic import BaseModel, Field
 # --- Enums ---
 
 
-class MessageDirection(str, Enum):
-    SERVER_TO_CLIENT = "s2c"
-    CLIENT_TO_SERVER = "c2s"
-
-
 class ServerMessageType(str, Enum):
     NARRATIVE = "narrative"
     PROMPT = "prompt"

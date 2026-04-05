@@ -6,7 +6,6 @@ and you get WebSocket + HTTP endpoints for free.
 
 from __future__ import annotations
 
-import json
 import uuid
 from abc import ABC, abstractmethod
 from typing import Any
