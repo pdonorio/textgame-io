@@ -40,10 +40,11 @@ from textgame_io.messages import (
 class GameSession:
     """Server-side session for one connected player."""
 
-    def __init__(self, session_id: str, config: SessionConfig | None = None) -> None:
+    def __init__(self, session_id: str, config: SessionConfig | None = None, metadata: dict[str, Any] | None = None) -> None:
         self.session_id = session_id
         self.config = config or SessionConfig()
         self.state: dict[str, Any] = {}  # game-specific state, set by subclass
+        self.metadata: dict[str, Any] = metadata or {}  # transport-level info (token, client hints)
 
 
 class GameServer(ABC):
@@ -84,9 +85,9 @@ class GameServer(ABC):
 
     # --- Session management ---
 
-    def create_session(self, config: SessionConfig | None = None) -> GameSession:
+    def create_session(self, config: SessionConfig | None = None, metadata: dict[str, Any] | None = None) -> GameSession:
         session_id = uuid.uuid4().hex[:12]
-        session = GameSession(session_id, config)
+        session = GameSession(session_id, config, metadata)
         self.sessions[session_id] = session
         return session
 
@@ -122,7 +123,16 @@ class GameServer(ABC):
 
         async def websocket_endpoint(ws: WebSocket) -> None:
             await ws.accept()
-            session = self.create_session()
+            # Extract query params as session metadata
+            params = dict(ws.query_params)
+            metadata: dict[str, Any] = {}
+            if "token" in params:
+                metadata["token"] = params["token"]
+            # art=false disables art for this session (e.g. mobile clients)
+            config = SessionConfig()
+            if params.get("art") == "false":
+                config.art_enabled = False
+            session = self.create_session(config=config, metadata=metadata)
             try:
                 # Send welcome
                 welcome = await self.handle_connect(session)

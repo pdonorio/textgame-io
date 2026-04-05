@@ -2,7 +2,13 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, interactive-widget=resizes-content">
+<meta name="theme-color" content="#0c0c0f">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="TextWorld">
+<link rel="manifest" href="/static/manifest.json">
+<link rel="apple-touch-icon" href="/static/icon-192.png">
 <title>TextWorld</title>
 <style>
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -24,19 +30,26 @@
   --accent:    #7888cc;
 }
 
-html, body {
+html {
   height: 100%;
+  height: 100dvh;
+}
+
+body {
+  height: 100%;
+  height: 100dvh;
   background: var(--bg);
   color: var(--text);
   font-family: 'Courier New', 'Lucida Console', monospace;
   font-size: 14px;
   line-height: 1.55;
-}
-
-body {
   display: flex;
   flex-direction: column;
   overflow: hidden;
+}
+
+@media (max-width: 600px) {
+  body { font-size: 15px; }
 }
 
 /* ── Status bar ── */
@@ -47,10 +60,18 @@ body {
   padding: 5px 14px;
   display: flex;
   gap: 18px;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
+  overflow-x: auto;
   align-items: center;
   font-size: 12px;
   min-height: 30px;
+  scrollbar-width: none;
+}
+#status-bar::-webkit-scrollbar { display: none; }
+
+@media (max-width: 600px) {
+  #status-bar { gap: 12px; padding: 5px 10px; font-size: 12px; }
+  .sf-version { display: none; }
 }
 .sf { display: flex; gap: 4px; align-items: baseline; }
 .sf-label { color: var(--text-dim); }
@@ -84,6 +105,12 @@ body {
   white-space: pre;
   margin: 4px 0;
   user-select: none;
+  overflow-x: auto;
+  max-width: 100%;
+}
+
+@media (max-width: 600px) {
+  .msg-art { font-size: 9px; }
 }
 
 .msg-narrative { margin: 3px 0; }
@@ -127,13 +154,16 @@ body {
   border: 1px solid var(--border);
   color: var(--blue);
   padding: 4px 13px;
+  min-height: 44px;
   cursor: pointer;
   font-family: inherit;
   font-size: 13px;
   border-radius: 2px;
   transition: background 0.1s, border-color 0.1s, color 0.1s;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
 }
-.choice-btn:hover, .choice-btn.active {
+.choice-btn:hover, .choice-btn:active, .choice-btn.active {
   background: #20203a;
   border-color: var(--accent);
   color: #aabbee;
@@ -142,6 +172,11 @@ body {
   color: var(--text-muted);
   font-size: 11px;
   margin-left: 5px;
+}
+
+@media (max-width: 600px) {
+  .choice-btn { font-size: 15px; padding: 8px 16px; }
+  #choices { gap: 8px; padding: 6px 12px 8px; }
 }
 
 /* ── Input row ── */
@@ -170,10 +205,11 @@ body {
   color: var(--text);
   padding: 5px 10px;
   font-family: inherit;
-  font-size: 14px;
+  font-size: 16px; /* prevents iOS auto-zoom */
   outline: none;
   border-radius: 2px;
   transition: border-color 0.15s;
+  min-width: 0;
 }
 #cmd-input:focus { border-color: var(--accent); }
 #cmd-input::placeholder { color: var(--text-muted); }
@@ -186,13 +222,24 @@ body {
   border: 1px solid var(--border);
   color: var(--accent);
   padding: 5px 14px;
+  min-height: 44px;
+  min-width: 60px;
   cursor: pointer;
   font-family: inherit;
   font-size: 13px;
   border-radius: 2px;
+  flex-shrink: 0;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
 }
-#send-btn:hover { background: #20203a; border-color: var(--accent); }
+#send-btn:hover, #send-btn:active { background: #20203a; border-color: var(--accent); }
 #send-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+@media (max-width: 600px) {
+  #input-row { padding: 6px 10px; gap: 6px; }
+  #prompt-label { display: none; }
+  #cmd-input { padding: 8px 10px; }
+}
 
 /* ── Connection badge ── */
 #conn-badge {
@@ -201,9 +248,71 @@ body {
   border-radius: 10px;
   flex-shrink: 0;
 }
+
+@media (max-width: 600px) {
+  #conn-badge { padding: 4px 8px; min-width: 10px; min-height: 10px; font-size: 0; border-radius: 50%; }
+  #output { padding: 8px 10px 4px; }
+}
 .conn-ok  { background: #0a2a0a; color: var(--green); border: 1px solid #1a4a1a; }
 .conn-err { background: #2a0a0a; color: var(--red);   border: 1px solid #4a1a1a; }
 .conn-mid { background: #1a1a0a; color: var(--yellow); border: 1px solid #3a3a1a; }
+
+/* ── Splash screen ── */
+#splash {
+  position: fixed;
+  inset: 0;
+  background: var(--bg);
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  transition: opacity 0.6s ease;
+}
+#splash.fade-out { opacity: 0; pointer-events: none; }
+
+#splash-art {
+  color: #3a4a5a;
+  font-size: 12px;
+  line-height: 1.25;
+  white-space: pre;
+  text-align: center;
+  user-select: none;
+  max-width: 95vw;
+  overflow-x: auto;
+}
+@media (max-width: 600px) {
+  #splash-art { font-size: 9px; }
+}
+
+#splash-title {
+  color: var(--blue);
+  font-size: 22px;
+  letter-spacing: 0.3em;
+  font-weight: bold;
+  user-select: none;
+}
+#splash-sub {
+  color: var(--text-dim);
+  font-size: 13px;
+  letter-spacing: 0.15em;
+  user-select: none;
+}
+#splash-enter {
+  color: var(--text-muted);
+  font-size: 12px;
+  letter-spacing: 0.1em;
+  user-select: none;
+  animation: blink 1.8s step-end infinite;
+}
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0; }
+}
 
 /* ── Inline rich spans ── */
 .r-bold   { font-weight: bold; }
@@ -212,6 +321,13 @@ body {
 </style>
 </head>
 <body>
+
+<div id="splash">
+  <pre id="splash-art"></pre>
+  <div id="splash-title">T E X T W O R L D</div>
+  <div id="splash-sub">where worlds collide</div>
+  <div id="splash-enter">[ tap anywhere to enter ]</div>
+</div>
 
 <div id="status-bar">
   <span class="sf sf-version"><span class="sf-label">TextWorld</span> <span class="sf-value" id="ver-label">—</span></span>
@@ -229,6 +345,287 @@ body {
 
 <script>
 "use strict";
+
+// ─── Splash screen ─────────────────────────────────────────────────────────
+const SPLASH_ART = [
+
+`       · ˚  *  · ˚  *  ·
+   ·  ╭──────────────────╮  ·
+  *   │  ·  ╭──────╮  ·  │   *
+   ·  │ ╭──╯ ~~~~~~ ╰──╮ │  ·
+      │ │  ~ ~~~~~~~~ ~ │ │
+  ˚   │ │ ~~ ════════ ~ │ │   ˚
+   ·  │ │  ~ ~~~~~~~~ ~ │ │  ·
+      │ ╰──╮ ~~~~~~ ╭──╯ │
+  *   │  ·  ╰──────╯  ·  │   *
+   ·  ╰──────────────────╯  ·
+       *  · ˚ ·  *  · ˚  *`,
+
+`  ══════════════╗   ╔══════════════
+  ░░░ desert ░░░║   ║░░░ ocean ░░░
+  ░░░  ~~~~~  ░░║   ║░░ ~~~~~~ ░░░
+  ░░  /\\ /\\  ░░║   ║░ ~~~~~~~~ ░░
+  ░░ /  V  \\ ░░║   ║░ ~~ )) ~~ ░░
+  ░░▓▓▓▓▓▓▓▓░░║   ║░░ ~~~~~~ ░░░
+  ══════════════╝   ╚══════════════
+       two truths meet here`,
+
+`           *    .  *    .
+      .   *   ·  ☽  ·  *   .
+         .  ╱╲    ╱╲  .
+    *   ╱────╲  ╱────╲   *
+       │ ◈◈◈◈ ╲╱ ◈◈◈◈ │
+   .   │ ◈◈◈◈ ╱╲ ◈◈◈◈ │  .
+       ╲────╱  ╲────╱
+    *   ╲╱        ╲╱   *
+      .    *  · ☀ ·  *   .
+           .    *    .`,
+
+`  ┌─────────────────────────────┐
+  │   W O R L D   C O L L I D E │
+  └─────────────┬───────────────┘
+               ─┤├─
+          ══════╬╬══════
+         ╔═════╝  ╚═════╗
+         ║  realm I      ║
+  ───────╬───────────────╬───────
+         ║      realm II ║
+         ╚═════╗  ╔═════╝
+          ══════╬╬══════
+               ─┤├─
+  ┌─────────────┴───────────────┐
+  │   all paths lead inward     │
+  └─────────────────────────────┘`,
+
+`  ·  ·  ·  ·  *  ·  ·  ·  ·
+  ·  .  ○   ──────────  ○  .  ·
+  · /  ( )  ──────────  ( ) \\ ·
+  ·/  /─┤   ──────────   ├─\\ \\·
+   | / ─┤   ──────────   ├─ \\ |
+   |/   ┤   ──────────   ├   \\|
+   \\    ┤   ──────────   ├    /
+  ·\\   └───┐          ┌──┘  /·
+  · \\______│          │____/ ·
+  ·  ·  ·  └──────────┘  ·  ·`,
+
+`        ┌───────────────┐
+        │  ○ ○ ○  ○ ○ ○ │  three suns
+        │   \\  \\ /  /   │
+        │    \\  X  /    │
+        │     \\/ \\/     │
+        │   THE PROBLEM  │
+        │  ─────────────│
+        │  OF THREE BODIES
+        │  ─────────────│
+        │ civilisation   │
+        │  flickers in   │
+        │   the dark     │
+        └───────────────┘`,
+
+`     ·  *    ·    *    ·  *
+  ·      .─────────────.      ·
+       /  ╭───────────╮  \\
+  *   │  ╱  ·  ~~~  ·  ╲  │  *
+   ·  │ │  ~~ PORTAL ~~ │ │ ·
+      │ │  ~ ≋≋≋≋≋≋≋ ~  │ │
+   ·  │  ╲  ·  ~~~  ·  ╱  │ ·
+  *   │    ╰───────────╯   │  *
+       \\  '─────────────'  /
+  ·      '─────────────'      ·
+     *  ·    *    ·    *  ·`,
+
+`  ╔════════════════════════════╗
+  ║  ▓▓▓▓  above  ▓▓▓▓▓▓▓▓▓▓  ║
+  ║  ▓▓  ∼∼∼∼∼∼∼∼∼∼∼  ▓▓▓▓▓  ║
+  ║  ▓∼∼  the sky falls  ∼∼▓  ║
+  ║  ∼∼∼∼∼∼∼∼∼∼∼∼∼∼∼∼∼∼∼∼∼  ║
+  ║  · · · · · · · · · · · ·  ║
+  ║  ▒▒  the earth rises ▒▒▒  ║
+  ║  ▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒  ║
+  ║  ▒▒▒▒  below  ▒▒▒▒▒▒▒▒▒  ║
+  ╚════════════════════════════╝`,
+
+`        /\\ · * · /\\ · * · /\\
+       /  \\      /  \\      /  \\
+      / ◉  \\    / ◉  \\    / ◉  \\
+     /──────\\  /──────\\  /──────\\
+    │  world │││  world │││  world│
+    │   I    │││   II   │││  III  │
+     \\──────╱  \\──────╱  \\──────╱
+      \\    ╱    \\    ╱    \\    ╱
+       \\  ╱──────\\  ╱──────\\  ╱
+        \\/  gate  \\/  gate  \\/`,
+
+`  ─────────────────────────────
+   · · · the archive · · ·
+  ─────────────────────────────
+   [sundering]  — a realm torn
+   [??????????] — sealed, 4801 years
+   [the problem]— three suns burn
+   [??????????] — pending discovery
+  ─────────────────────────────
+   which world calls to you?
+  ─────────────────────────────`,
+
+`      .  *   .  ✦  .   *  .
+    *    ╭─────────────╮    *
+   .   ╭─╯  ·  · · ·  ╰─╮   .
+  *   ╭╯  ◦  ·  ✦  ·  ◦  ╰╮  *
+   · ╭╯  · ╭───────╮ ·  ╰╮ ·
+     │  ◦  │ enter │  ◦  │
+   · ╰╮  · ╰───────╯ ·  ╭╯ ·
+  *   ╰╮  ◦  ·  ✦  ·  ◦  ╭╯  *
+   .   ╰─╮  ·  · · ·  ╭─╯   .
+    *    ╰─────────────╯    *
+      .  *   .  ✦  .   *  .`,
+
+`  ┌───────────────────────────┐
+  │ ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓ │
+  │ ▓▓▓▓▓▓▓▓ MEMORY ▓▓▓▓▓▓▓▓ │
+  │ ▓▓▓▓▓  OF THE  ▓▓▓▓▓▓▓▓▓ │
+  │ ▓▓▓▓▓  WORLDS  ▓▓▓▓▓▓▓▓▓ │
+  │ ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓ │
+  │                            │
+  │  I  ──┐                    │
+  │  II ──┼──→ convergence     │
+  │  III──┘                    │
+  │                            │
+  └───────────────────────────┘`,
+
+`         *       *       *
+     *  ·   ·   ·   ·   ·  *
+    ·   · ──────────────── ·  ·
+   *  · ─/── gate ──────\\─ · *
+   · · /   /──────────\\   \\ · ·
+   · · |  │  ≋≋≋≋≋≋≋≋  │  | · ·
+   · · \\   \\──────────/   / · ·
+   *  · ─\\── ──────── /─ · *
+    ·   · ──────────────── ·  ·
+     *  ·   ·   ·   ·   ·  *
+         *       *       *`,
+
+`  ════════════════════════════
+       the sundering
+  ────────────────────────────
+   long ago the realm was one.
+   then the sky cracked open.
+
+       ╲  │  │  ╱
+    ════╲═│══│═╱════
+        ╲ │  │ ╱
+         ╲│  │╱
+          ╳  ╳
+         ╱│  │╲
+    ════╱═│══│═╲════
+       ╱  │  │  ╲
+
+   the pieces drift and dream.
+  ════════════════════════════`,
+
+`     ·  *  ·    ·  *  ·
+   ·   ┌──────────────┐   ·
+  *    │   north sky  │    *
+   ·   │  · ·  ✦ · · │   ·
+       ├──────────────┤
+       │  the breach  │
+   ·   │  ≡≡≡≡≡≡≡≡≡≡ │   ·
+  *    │  ≡≡≡≡≡≡≡≡≡≡ │    *
+   ·   ├──────────────┤   ·
+       │   south sky  │
+   ·   │  · · ✦  · · │   ·
+  *    └──────────────┘    *
+     ·  *  ·    ·  *  ·`,
+
+`  ·  ·  ·  ·  ·  ·  ·  ·  ·
+   ·    ╔══╗          ╔══╗   ·
+  ·     ║  ║  ──────  ║  ║    ·
+   ·    ║  ╚══════════╝  ║   ·
+  ·     ║  realm  I      ║    ·
+   ·    ║  ╔══════════╗  ║   ·
+  ·     ║  ║  ──────  ║  ║    ·
+   ·    ╚══╝          ╚══╝   ·
+  ·    where do you belong?   ·
+  ·  ·  ·  ·  ·  ·  ·  ·  ·`,
+
+`      *    ·    *    ·    *
+    ·   ·  ╭─────────╮  ·   ·
+   *      ╭╯   ·   · ╰╮     *
+    ·    ╭╯  ·     ·   ╰╮  ·
+   *    ╭╯  a traveller  ╰╮  *
+    ·  ╭╯  stands at the  ╰╮ ·
+   *  ╭╯   edge of both   ╰╮ *
+    · ╰╮      worlds      ╭╯ ·
+   *   ╰╮    ·     ·    ╭╯  *
+    ·    ╰╮  ·       · ╭╯  ·
+   *      ╰───────────╯     *
+    ·   ·         ·   ·   ·
+      *    ·    *    ·    *`,
+
+`  ▓▓▓▓▓▓▓▓▓▓▓▒▒▒▒▒░░░░░░░░░░
+  ▓▓▓▓▓▓▓▓▓▓▓▒▒▒▒▒░░░░░░░░░░
+  ▓▓ magic  ▓▒▒▒▒▒░░ science ░
+  ▓▓▓▓▓▓▓▓▓▓▓▒▒▒▒▒░░░░░░░░░░
+  ▓▓▓▓▓▓▓▓▓▓▓▒▒▒▒▒░░░░░░░░░░
+           ↑↑↑↑↑
+       the bleed zone
+           ↓↓↓↓↓
+  ░░░░░░░░░░▒▒▒▒▒▓▓▓▓▓▓▓▓▓▓▓
+  ░░░░░░░░░░▒▒▒▒▒▓▓▓▓▓▓▓▓▓▓▓
+  ░░░░░░░░░░▒▒▒▒▒▓▓▓▓▓▓▓▓▓▓▓
+  ░░░░░░░░░░▒▒▒▒▒▓▓▓▓▓▓▓▓▓▓▓`,
+
+`       · * · * · * · * ·
+   *  ┌─────────────────┐  *
+  ·   │ ·  past worlds  · │  ·
+  *   │   [forgotten]   │  *
+  ·   │   [sundered]    │  ·
+  *   │   [sleeping]    │  *
+  ·   ├─────────────────┤  ·
+  *   │ ·  your world · │  *
+  ·   │      HERE       │  ·
+  *   ├─────────────────┤  *
+  ·   │ · future worlds·│  ·
+  *   │   [unwritten]   │  *
+  ·   └─────────────────┘  ·
+       · * · * · * · * ·`,
+
+`  ┌──────────────────────────┐
+  │                            │
+  │  ·  the gate remembers  · │
+  │                            │
+  │   all who passed through   │
+  │                            │
+  │      ╔══════════╗          │
+  │      ║  ~~~~~~  ║          │
+  │      ║ ~~~~~~~~ ║          │
+  │      ║  ~~~~~~  ║          │
+  │      ╚══════════╝          │
+  │                            │
+  │  · will you be remembered? │
+  └──────────────────────────┘`,
+
+];
+
+const splashEl  = document.getElementById('splash');
+const splashArt = document.getElementById('splash-art');
+
+splashArt.textContent = SPLASH_ART[Math.floor(Math.random() * SPLASH_ART.length)];
+
+function dismissSplash() {
+  splashEl.classList.add('fade-out');
+  setTimeout(() => { splashEl.style.display = 'none'; }, 650);
+  connect();
+  splashEl.removeEventListener('click', dismissSplash);
+  document.removeEventListener('keydown', onSplashKey);
+}
+
+function onSplashKey(e) {
+  if (e.key === 'Tab' || e.key === 'Shift') return; // ignore focus-only keys
+  dismissSplash();
+}
+
+splashEl.addEventListener('click', dismissSplash);
+document.addEventListener('keydown', onSplashKey);
 
 // ─── Rich markup → safe HTML ───────────────────────────────────────────────
 const RICH_COLORS = {
@@ -301,7 +698,45 @@ function render(msg) {
     case 'system':    return renderSystem(msg);
     case 'status':    return renderStatus(msg);
     case 'prompt':    return renderPrompt(msg);
+    case 'auth':      return handleAuth(msg);
   }
+}
+
+function handleAuth(msg) {
+  if (msg.token) localStorage.setItem('tw_token', msg.token);
+  if (msg.recovery_phrase) showRecoveryModal(msg.username, msg.recovery_phrase);
+}
+
+function showRecoveryModal(username, phrase) {
+  const overlay = document.createElement('div');
+  overlay.style.cssText = `
+    position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:200;
+    display:flex;align-items:center;justify-content:center;padding:20px;
+  `;
+  overlay.innerHTML = `
+    <div style="background:#13131a;border:1px solid #2a2a3a;border-radius:4px;
+                padding:24px;max-width:420px;width:100%;font-family:inherit;">
+      <div style="color:#c8a84a;font-size:15px;margin-bottom:12px;">
+        Welcome, ${username}. Save your recovery phrase.
+      </div>
+      <div style="color:#5a5a70;font-size:12px;margin-bottom:16px;line-height:1.6;">
+        This is the only way to link a new device to your character.<br>
+        It will <strong style="color:#cc5555">never be shown again</strong>.
+      </div>
+      <div style="background:#0c0c0f;border:1px solid #3a3a5a;border-radius:2px;
+                  padding:12px;color:#7888cc;font-size:14px;letter-spacing:0.05em;
+                  text-align:center;margin-bottom:18px;user-select:all;">
+        ${phrase}
+      </div>
+      <button id="recovery-ok" style="width:100%;background:#1a1a24;border:1px solid #2a2a3a;
+              color:#c4c4b0;padding:10px;font-family:inherit;font-size:14px;
+              cursor:pointer;border-radius:2px;">
+        I've saved it — continue
+      </button>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+  overlay.querySelector('#recovery-ok').onclick = () => overlay.remove();
 }
 
 function renderArt(msg) {
@@ -479,7 +914,13 @@ function setConnState(state) {
 function connect() {
   setConnState('connecting');
   const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
-  ws = new WebSocket(`${proto}//${location.host}/ws`);
+  const params = new URLSearchParams();
+  const savedToken = localStorage.getItem('tw_token');
+  if (savedToken) params.set('token', savedToken);
+  // Disable art on narrow touch screens (mobile)
+  const isMobile = navigator.maxTouchPoints > 0 && window.innerWidth < 700;
+  if (isMobile) params.set('art', 'false');
+  ws = new WebSocket(`${proto}//${location.host}/ws?${params}`);
 
   ws.onopen = () => {
     setConnState('ok');
@@ -510,7 +951,13 @@ function connect() {
   ws.onerror = () => setConnState('error');
 }
 
-connect();
+// connect() is called by dismissSplash(), not on load
+</script>
+<script>
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('/static/sw.js', { scope: '/' })
+    .catch(err => console.warn('SW registration failed:', err));
+}
 </script>
 </body>
 </html>

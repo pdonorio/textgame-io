@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" fill="#0c0c0f"/>
+  <rect x="32" y="32" width="448" height="448" rx="48" fill="#13131a"/>
+  <!-- Gate arch -->
+  <path d="M 156 380 L 156 220 Q 156 160 256 160 Q 356 160 356 220 L 356 380 Z"
+        fill="none" stroke="#7888cc" stroke-width="18" stroke-linejoin="round"/>
+  <!-- Door opening -->
+  <path d="M 206 380 L 206 255 Q 206 220 256 220 Q 306 220 306 255 L 306 380 Z"
+        fill="#0c0c0f" stroke="#7888cc" stroke-width="12"/>
+  <!-- Glow dot -->
+  <circle cx="256" cy="200" r="12" fill="#c8a84a" opacity="0.9"/>
+  <!-- Crenellations -->
+  <rect x="148" y="108" width="24" height="32" rx="4" fill="#7888cc"/>
+  <rect x="188" y="96"  width="24" height="44" rx="4" fill="#7888cc"/>
+  <rect x="244" y="88"  width="24" height="52" rx="4" fill="#7888cc"/>
+  <rect x="300" y="96"  width="24" height="44" rx="4" fill="#7888cc"/>
+  <rect x="340" y="108" width="24" height="32" rx="4" fill="#7888cc"/>
+</svg>

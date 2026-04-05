@@ -26,6 +26,7 @@ class ServerMessageType(str, Enum):
     STATUS = "status"
     SYSTEM = "system"
     ART = "art"
+    AUTH = "auth"
 
 
 class ClientMessageType(str, Enum):
@@ -146,8 +147,16 @@ class ArtMessage(BaseModel):
     alt: str = ""       # alt text description for accessibility
 
 
+class AuthMessage(BaseModel):
+    """Sent after character creation or token verification. Clients store the token locally."""
+    type: ServerMessageType = ServerMessageType.AUTH
+    token: str          # device token — store in localStorage / file
+    username: str       # character name
+    recovery_phrase: str = ""  # shown once at creation; empty on resume
+
+
 # Union of all server messages
-ServerMessage = NarrativeMessage | PromptMessage | StatusMessage | SystemMessage | ArtMessage
+ServerMessage = NarrativeMessage | PromptMessage | StatusMessage | SystemMessage | ArtMessage | AuthMessage
 
 
 # --- Client → Server ---
@@ -202,6 +211,7 @@ _SERVER_MESSAGE_TYPES: dict[str, type[BaseModel]] = {
     ServerMessageType.STATUS: StatusMessage,
     ServerMessageType.SYSTEM: SystemMessage,
     ServerMessageType.ART: ArtMessage,
+    ServerMessageType.AUTH: AuthMessage,
 }
 
 _CLIENT_MESSAGE_TYPES: dict[str, type[BaseModel]] = {
