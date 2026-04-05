@@ -1,0 +1,16 @@
+FROM python:3.12-slim
+
+WORKDIR /app
+
+COPY pyproject.toml .
+COPY src/ src/
+
+RUN pip install --no-cache-dir ".[terminal]" --no-deps && \
+    pip install --no-cache-dir pydantic websockets rich
+
+# Token stored in /data — mount ~/.textworld here for persistence
+VOLUME /data
+ENV TEXTWORLD_TOKEN_PATH=/data/token
+
+ENTRYPOINT ["textgame"]
+CMD ["connect", "--help"]

@@ -13,6 +13,7 @@ from websockets.asyncio.client import ClientConnection
 
 from textgame_io.messages import (
     ArtMessage,
+    AuthMessage,
     ClientMessage,
     CommandMessage,
     Envelope,
@@ -33,9 +34,17 @@ class GameClient(ABC):
 
     Subclass and implement the render_* methods for your platform.
     Then call run() to connect and start the game loop.
+
+    Pass token to authenticate as an existing character. The token is
+    appended to the WebSocket URL as ?token=<hex>. Override on_auth()
+    to persist a newly issued token for future sessions.
     """
 
-    def __init__(self, server_url: str = "ws://localhost:8000/ws") -> None:
+    def __init__(self, server_url: str = "ws://localhost:8000/ws", token: str = "") -> None:
+        # Append auth token to URL if provided
+        if token:
+            sep = "&" if "?" in server_url else "?"
+            server_url = f"{server_url}{sep}token={token}"
         self.server_url = server_url
         self.session_id: str = ""
         self.config = SessionConfig()
@@ -63,6 +72,13 @@ class GameClient(ABC):
     async def render_art(self, msg: ArtMessage) -> None:
         """Render visual content (ASCII art, image, or skip)."""
 
+    async def on_auth(self, msg: AuthMessage) -> None:
+        """Called when an auth message is received. Override to persist the token."""
+
+    async def render_auth(self, msg: AuthMessage) -> None:
+        """Handle auth message. Calls on_auth() then displays recovery phrase if present."""
+        await self.on_auth(msg)
+
     @abstractmethod
     async def get_input(self) -> str:
         """Wait for player input. Returns raw text."""
@@ -87,6 +103,8 @@ class GameClient(ABC):
             await self.render_system(msg)
         elif isinstance(msg, ArtMessage):
             await self.render_art(msg)
+        elif isinstance(msg, AuthMessage):
+            await self.render_auth(msg)
 
     async def render_envelope(self, envelope: Envelope) -> None:
         """Render all messages in an envelope."""
