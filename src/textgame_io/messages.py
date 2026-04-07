@@ -68,6 +68,7 @@ class ClientType(str, Enum):
     WEB = "web"
     WHATSAPP = "whatsapp"
     DISCORD = "discord"
+    AGENT = "agent"    # AI-driven client (textlives fleet)
     GENERIC = "generic"
 
 
