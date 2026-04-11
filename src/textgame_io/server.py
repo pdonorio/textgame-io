@@ -6,6 +6,7 @@ and you get WebSocket + HTTP endpoints for free.
 
 from __future__ import annotations
 
+import asyncio
 import uuid
 from abc import ABC, abstractmethod
 from typing import Any
@@ -44,6 +45,7 @@ class GameSession:
         self.config = config or SessionConfig()
         self.state: dict[str, Any] = {}  # game-specific state, set by subclass
         self.metadata: dict[str, Any] = metadata or {}  # transport-level info (token, client hints)
+        self._outbox: asyncio.Queue[list[ServerMessage]] = asyncio.Queue()  # server-push messages
 
 
 class GameServer(ABC):
@@ -98,6 +100,10 @@ class GameServer(ABC):
 
     # --- Message routing ---
 
+    async def _enqueue(self, session: GameSession, messages: list[ServerMessage]) -> None:
+        """Push server-initiated messages to the session's outbox."""
+        await session._outbox.put(messages)
+
     async def route_message(self, session: GameSession, msg: ClientMessage) -> list[ServerMessage]:
         """Route an incoming client message to the appropriate handler."""
         if isinstance(msg, CommandMessage):
@@ -138,21 +144,46 @@ class GameServer(ABC):
                 envelope = Envelope(session_id=session.session_id, messages=welcome)
                 await ws.send_json(envelope.model_dump())
 
-                # Main loop
+                # Main loop — wait for client input OR server-push messages
                 while True:
-                    data = await ws.receive_json()
-                    client_msg = parse_client_message(data)
-                    if client_msg is None:
-                        err = Envelope(
-                            session_id=session.session_id,
-                            messages=[SystemMessage(text="Invalid message.", level=SystemLevel.ERROR)],
-                        )
-                        await ws.send_json(err.model_dump())
-                        continue
+                    receive_task = asyncio.create_task(ws.receive_json())
+                    push_task = asyncio.create_task(session._outbox.get())
+                    done, pending = await asyncio.wait(
+                        [receive_task, push_task],
+                        return_when=asyncio.FIRST_COMPLETED,
+                    )
+                    for t in pending:
+                        t.cancel()
+                        try:
+                            await t
+                        except (asyncio.CancelledError, Exception):
+                            pass
 
-                    responses = await self.route_message(session, client_msg)
-                    envelope = Envelope(session_id=session.session_id, messages=responses)
-                    await ws.send_json(envelope.model_dump())
+                    if push_task in done:
+                        push_msgs = push_task.result()
+                        push_env = Envelope(session_id=session.session_id, messages=push_msgs)
+                        await ws.send_json(push_env.model_dump())
+
+                    if receive_task in done:
+                        data = receive_task.result()
+                        client_msg = parse_client_message(data)
+                        if client_msg is None:
+                            err = Envelope(
+                                session_id=session.session_id,
+                                messages=[SystemMessage(text="Invalid message.", level=SystemLevel.ERROR)],
+                            )
+                            await ws.send_json(err.model_dump())
+                            continue
+
+                        try:
+                            responses = await self.route_message(session, client_msg)
+                        except Exception as exc:
+                            responses = [SystemMessage(
+                                text=f"Internal error: {exc}",
+                                level=SystemLevel.ERROR,
+                            )]
+                        envelope = Envelope(session_id=session.session_id, messages=responses)
+                        await ws.send_json(envelope.model_dump())
             except WebSocketDisconnect:
                 await self.handle_disconnect(session)
                 self.remove_session(session.session_id)
@@ -164,7 +195,10 @@ class GameServer(ABC):
             # Connect flow
             if not session_id or session_id not in self.sessions:
                 config = SessionConfig(**data.get("config", {}))
-                session = self.create_session(config)
+                metadata: dict[str, Any] = {}
+                if "token" in data:
+                    metadata["token"] = data["token"]
+                session = self.create_session(config, metadata=metadata)
                 welcome = await self.handle_connect(session)
                 envelope = Envelope(session_id=session.session_id, messages=welcome)
                 return JSONResponse(envelope.model_dump())
