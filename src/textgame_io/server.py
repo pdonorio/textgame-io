@@ -140,7 +140,12 @@ class GameServer(ABC):
             session = self.create_session(config=config, metadata=metadata)
             try:
                 # Send welcome
-                welcome = await self.handle_connect(session)
+                try:
+                    welcome = await self.handle_connect(session)
+                except Exception as exc:
+                    import logging
+                    logging.getLogger(__name__).exception("handle_connect failed")
+                    welcome = [SystemMessage(text=f"Connection error: {exc}", level=SystemLevel.ERROR)]
                 envelope = Envelope(session_id=session.session_id, messages=welcome)
                 await ws.send_json(envelope.model_dump())
 
